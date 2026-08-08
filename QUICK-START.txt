@@ -1,0 +1,205 @@
+ATTENDANCE API - QUICK START GUIDE (WITH EXTERNAL API INTEGRATION)
+===================================================================
+
+PROJECT LOCATION: C:\Users\DELL\IdeaProjects\att
+
+STEP 1: BUILD THE PROJECT
+==========================
+Option A (Using run.bat):
+  Double-click: run.bat
+  
+Option B (Manual):
+  Open Command Prompt/PowerShell and run:
+  cd C:\Users\DELL\IdeaProjects\att
+  mvn clean package -DskipTests
+  mvn spring-boot:run
+
+STEP 2: VERIFY THE API IS RUNNING
+==================================
+The API will start on: http://localhost:8080
+
+Open a new Command Prompt/PowerShell and test:
+  curl http://localhost:8080/api/attendance/health
+
+Expected Response:
+  Attendance API is running
+
+STEP 3: TEST THE API ENDPOINTS
+===============================
+
+Option A - Using test-api.bat (if server is running in another window):
+  Double-click: test-api.bat
+
+Option B - Manual testing with curl:
+
+1. Get attendance for EMP001 using month name (January):
+   curl http://localhost:8080/api/attendance/employee/EMP001/month/january
+
+2. Get attendance using short month name (Jan):
+   curl http://localhost:8080/api/attendance/employee/EMP001/month/jan
+
+3. Get attendance using month number (1):
+   curl http://localhost:8080/api/attendance/employee/EMP001/month/1
+
+4. Get attendance using YYYY-MM format:
+   curl http://localhost:8080/api/attendance/employee/EMP001/month/2026-08
+
+5. Get attendance with query parameters:
+   curl "http://localhost:8080/api/attendance/search?empId=EMP001&month=january"
+
+6. Health check:
+   curl http://localhost:8080/api/attendance/health
+
+API ENDPOINTS
+=============
+
+1. Get Attendance (Path Parameters)
+   URL: GET /api/attendance/employee/{empId}/month/{month}
+   Parameters:
+     - empId: Employee ID (e.g., EMP001)
+     - month: Month format - supports:
+       * Full month names: january, february, march, april, may, june, july, august, september, october, november, december
+       * Short month names: jan, feb, mar, apr, may, jun, jul, aug, sep, oct, nov, dec
+       * Month numbers: 1-12
+       * YYYY-MM format: 2026-08
+   
+2. Get Attendance (Query Parameters)
+   URL: GET /api/attendance/search
+   Parameters:
+     - empId: Employee ID
+     - month: Month (any format as above)
+   
+3. Health Check
+   URL: GET /api/attendance/health
+
+EXTERNAL API INTEGRATION
+========================
+The application calls: http://117.192.9.195/Attendance_Api/punchReport.php
+
+Request Method: POST
+Content-Type: application/x-www-form-urlencoded
+
+Parameters sent (in request body):
+  - EMP_CODE: Employee ID/Code
+  - FROM_DATE: First day of month (YYYY-MM-DD format)
+  - TO_DATE: Last day of month (YYYY-MM-DD format)
+
+Example call (cURL):
+  curl -X POST http://117.192.9.195/Attendance_Api/punchReport.php \
+    -H "Content-Type: application/x-www-form-urlencoded" \
+    -d "EMP_CODE=EMP001&FROM_DATE=2026-08-01&TO_DATE=2026-08-31"
+
+NO LOCAL DATABASE
+=================
+✓ No H2 database needed
+✓ No database configuration required
+✓ All data fetched from external API in real-time
+✓ Lightweight - only 18MB JAR file
+
+PROJECT STRUCTURE
+=================
+att/
+├── pom.xml (Maven configuration - NO database dependencies)
+├── README.md (Detailed documentation)
+├── run.bat (Quick start script)
+├── test-api.bat (API testing script)
+└── src/
+    └── main/
+        ├── java/com/attendance/
+        │   ├── AttendanceApiApplication.java (Main Spring Boot app)
+        │   ├── config/
+        │   │   └── RestTemplateConfig.java (HTTP client configuration)
+        │   ├── controller/
+        │   │   └── AttendanceController.java (REST endpoints)
+        │   ├── model/
+        │   │   ├── AttendanceResponse.java (Response DTO)
+        │   │   └── ExternalApiResponse.java (External API response mapping)
+        │   └── service/
+        │       ├── AttendanceService.java (Business logic)
+        │       └── ExternalAttendanceService.java (External API calls)
+        └── resources/
+            └── application.properties (Spring Boot config)
+
+HOW IT WORKS
+============
+1. Client Request
+   → GET /api/attendance/employee/EMP001/month/2026-08
+
+2. API Server
+   → Receives request
+   → Calculates month start/end dates
+   → Calls external API with parameters:
+     * EMP_CODE=EMP001
+     * FROM_DATE=2026-08-01
+     * TO_DATE=2026-08-31
+
+3. External API Response
+   → Returns JSON with attendance records
+   → Example fields: PUNCH_DATE, IN_TIME, OUT_TIME, WORK_HRS, STATUS
+
+4. Response Transformation
+   → API transforms external response
+   → Calculates statistics (present days, total hours, etc.)
+   → Returns standardized JSON format
+
+5. Client Receives
+   → Comprehensive attendance summary
+   → Day-by-day details
+   → Total working hours
+
+RESPONSE FORMAT
+===============
+{
+  "empId": "EMP001",
+  "month": "08",
+  "year": "2026",
+  "totalWorkingDays": 20,
+  "presentDays": 18,
+  "absentDays": 2,
+  "leaveDays": 0,
+  "halfDays": 0,
+  "totalWorkingHours": 144.0,
+  "attendanceDetails": [
+    {
+      "date": "2026-08-01",
+      "status": "PRESENT",
+      "workingHours": 8.0,
+      "remarks": "09:00 AM to 05:30 PM"
+    }
+  ]
+}
+
+TROUBLESHOOTING
+===============
+
+Port Already in Use:
+  - Change server.port in src/main/resources/application.properties
+  - Or kill the process on port 8080
+
+External API Not Reachable:
+  - Check network connectivity to http://117.192.9.195
+  - Verify firewall settings
+  - API returns empty results if external service is down
+
+Build Issues:
+  - Ensure Java 17+ is installed: java -version
+  - Ensure Maven is installed: mvn -version
+  - Clear Maven cache: mvn clean
+
+Cannot Connect to API:
+  - Ensure the server is still running (check terminal window)
+  - Ensure you're using http:// not https://
+  - Check firewall settings
+
+FEATURES
+========
+✓ Calls external attendance API in real-time
+✓ No local database required
+✓ Transforms external API responses to standard format
+✓ Calculates attendance statistics (present, absent days, total hours)
+✓ RESTful endpoints with path and query parameters
+✓ Health check endpoint
+✓ Error handling for API failures
+✓ Logging for debugging
+
+For more details, see README.md
