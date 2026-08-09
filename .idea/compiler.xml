@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="CompilerConfiguration">
-    <option name="DEFAULT_COMPILER">javac</option>
     <resourceExtensions>
       <entry name=".+\.(properties|xml|html|dtd|tld|ftl)" />
     </resourceExtensions>
@@ -14,9 +13,6 @@
         <module name="attendance-api" />
       </profile>
     </annotationProcessing>
-    <bytecodeTargetLevel>
-      <module name="attendance-api" target="17" />
-    </bytecodeTargetLevel>
   </component>
   <component name="JavacSettings">
     <option name="ADDITIONAL_OPTIONS_OVERRIDE">

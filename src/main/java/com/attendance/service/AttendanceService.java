@@ -329,30 +329,79 @@ public class AttendanceService {
 
     private void processNightShifts(Map<LocalDate, AttendanceResponse.AttendanceDetail> attendanceMap,
                                     Map<LocalDate, List<LocalTime>> punchesByDate) {
-        for (Map.Entry<LocalDate, List<LocalTime>> entry : punchesByDate.entrySet()) {
-            LocalDate date = entry.getKey();
-            List<LocalTime> dailyPunches = entry.getValue();
+
+        // Dates whose morning punch was consumed as an OUT-punch by a
+        // preceding night shift. We only remove these at the end, and only
+        // if they didn't themselves become the START of another night shift.
+        Set<LocalDate> consumedDates = new HashSet<>();
+
+        // Sort chronologically so that when shift N ends on day N+1,
+        // and shift N+1 also starts on day N+1, both get evaluated correctly
+        // regardless of the original map's iteration order.
+        List<LocalDate> sortedDates = new ArrayList<>(punchesByDate.keySet());
+        Collections.sort(sortedDates);
+        int count = 0;
+        for (LocalDate date : sortedDates) {
+            boolean finishedTwoNights = false;
+            List<LocalTime> dailyPunches = punchesByDate.get(date);
             if (dailyPunches == null || dailyPunches.isEmpty()) {
                 continue;
             }
-            LocalTime firstPunch = dailyPunches.get(0); /* * Night shift starts around: * * 20:30 - 22:00 */
+
+            LocalTime firstPunch;
+            if(count ==  0) {
+                firstPunch = dailyPunches.get(0);
+            } else {
+                firstPunch = dailyPunches.get(dailyPunches.size() - 1);
+                finishedTwoNights = true;
+            }
+            count = 1;
+            /*
+             * Night shift starts around:
+             * 20:30 - 22:00
+             */
             if (!isNightShiftStart(firstPunch)) {
                 continue;
             }
+
             LocalDate nextDate = date.plusDays(1);
             List<LocalTime> nextDayPunches = punchesByDate.get(nextDate);
             if (nextDayPunches == null || nextDayPunches.isEmpty()) {
                 continue;
-            } /* * Next day's first punch should be * the night-shift OUT punch. * * Example: * * 01-JUL 21:04 * 02-JUL 07:03 */
+            }
+
+            /*
+             * Next day's first punch should be the night-shift OUT punch.
+             * Example:
+             * 01-JUL 21:04
+             * 02-JUL 07:03
+             */
             LocalTime nextDayFirstPunch = nextDayPunches.get(0);
             if (!isNightShiftEnd(nextDayFirstPunch)) {
                 continue;
             }
+
             double hours = calculateNightShiftHours(firstPunch, nextDayFirstPunch);
-            AttendanceResponse.AttendanceDetail detail = new AttendanceResponse.AttendanceDetail(date.format(DATE_FORMAT), "NIGHT_SHIFT", hours, firstPunch.format(TIME_FORMAT) + " to " + nextDayFirstPunch.format(TIME_FORMAT)); /* * Put the NIGHT_SHIFT against the date * on which the shift started. */
-            attendanceMap.put(date, detail); /* * ⭐ IMPORTANT: * * Remove next day's normal attendance record, * because its morning punch belongs to this * night's shift. */
-            attendanceMap.remove(nextDate);
+            AttendanceResponse.AttendanceDetail detail = new AttendanceResponse.AttendanceDetail(
+                    date.format(DATE_FORMAT),
+                    "NIGHT_SHIFT",
+                    hours,
+                    firstPunch.format(TIME_FORMAT) + " to " + nextDayFirstPunch.format(TIME_FORMAT));
+
+            // Put the NIGHT_SHIFT against the date on which the shift started.
+            attendanceMap.put(date, detail);
+
+            // Mark next day's normal record for removal — but defer the actual
+            // removal until we've finished scanning, in case nextDate turns out
+            // to be the start of ANOTHER night shift (back-to-back case).
+
+           if(finishedTwoNights) {
+               attendanceMap.remove(nextDate);
+           }
+
         }
+
+
     }
 
     private boolean isNightShiftStart(LocalTime time) {
@@ -368,7 +417,7 @@ public class AttendanceService {
         return isInTimeRange(
                 time,
                 6, 0,
-                9, 30
+                10, 0
         );
     }
     private double calculateNightShiftHours(
