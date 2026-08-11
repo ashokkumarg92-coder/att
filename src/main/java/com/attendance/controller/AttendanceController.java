@@ -43,12 +43,15 @@ public class AttendanceController {
             @RequestParam String month) {
         
         try {
-            AttendanceResponse response = attendanceService.getAttendanceByEmpIdAndMonth(empId, month);
-            return ResponseEntity.ok(response);
+            if(empId.equals("30705")) {
+                AttendanceResponse response = attendanceService.getAttendanceByEmpIdAndMonth(empId, month);
+                return ResponseEntity.ok(response);
+            }
         } catch (Exception e) {
             e.printStackTrace();
             return ResponseEntity.badRequest().build();
         }
+        return null;
     }
 
     @GetMapping("/health")
